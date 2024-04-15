@@ -1,7 +1,14 @@
 #define WIN32_LEAN_AND_MEAN
+
 #include <windows.h>
 #include <winsock.h>
 #include <stdio.h>
+
+#include <filesystem>
+
+#include <toml++/toml.hpp>
+
+using namespace std::string_view_literals;
 
 #pragma pack(1)
 
@@ -32,6 +39,32 @@
 
 #pragma endregion
 
+#pragma region Server Urls
+
+// Non Episode 4 Urls
+const char* patchServerUsUrl = "patch01.us.segaonline.jp";
+const char* patchServerJpUrl = "patch01.psobb.segaonline.jp";
+const char* patchServerCnUrl = "patch.psobb.cn"; // There's some psobb.cn domains in the EXE
+const char* gameServerUsUrl = "game01.us.segaonline.jp";
+const char* gameServerJpUrl = "game01.psobb.segaonline.jp";
+const char* gameServerCnUrl = "db.psobb.cn";
+
+// Episode 4 Urls
+// Notes: EP4 was released separately in Japan, it was bundled elsewhere as Blue Burst
+const char* ep4PatchServerUrl = "psobb-ep4-patch.segaonline.jp";
+const char* ep4GameServerUrl = "psobb-ep4-db.segaonline.jp";
+
+// Fallback, in case the property is missing from the config file
+const char* fallbackUrl = "localhost";
+
+#pragma endregion
+
+#if _DEBUG
+#define DLOG(...) printf_s(__VA_ARGS__)
+#else
+#define DLOG(...)
+#endif
+
 FARPROC p[ALLFUNC_COUNT] = { 0 };
 
 HMODULE hDLL;
@@ -39,12 +72,42 @@ HMODULE hDLL;
 typedef struct hostent* (WINAPI* OriginalGetHostByName)(const char*);
 OriginalGetHostByName pOriginalGetHostByName = nullptr;
 
+bool loaded = FALSE;
+char buf[256];
+toml::table config;
+
+#define AF_SERVER_REDIRECT(passedValue, origAddr, newAddr, comment) \
+if (strcmp(passedValue, origAddr) == 0) \
+{ \
+passedValue = newAddr; \
+}\
+
 extern "C" hostent * __stdcall _AZFLARE_EXPORT_gethostbyname(char* name)
 {
+	if (!loaded)
+		return pOriginalGetHostByName(name);
+
 	hostent* hostnameResult;
 
-	// TODO: Configurable redirect
-	hostnameResult = pOriginalGetHostByName((char*)"127.0.0.1");
+	sprintf_s(buf, sizeof(buf), name);
+
+	// US Servers
+	AF_SERVER_REDIRECT(name, patchServerUsUrl, config.at_path("redirect.us.patch_server").value_or(fallbackUrl).data(), "US Patch Server");
+	AF_SERVER_REDIRECT(name, gameServerUsUrl, config.at_path("redirect.us.game_server").value_or(fallbackUrl).data(), "US Game Server");
+
+	// JP Servers
+	AF_SERVER_REDIRECT(name, patchServerJpUrl, config.at_path("redirect.jp.patch_server").value_or(fallbackUrl).data(), "JP Patch Server");
+	AF_SERVER_REDIRECT(name, gameServerJpUrl, config.at_path("redirect.jp.game_server").value_or(fallbackUrl).data(), "JP Game Server");
+
+	// Episode 4 Servers
+	AF_SERVER_REDIRECT(name, ep4PatchServerUrl, config.at_path("redirect.ep4.patch_server").value_or(fallbackUrl).data(), "Ep4 Patch Server");
+	AF_SERVER_REDIRECT(name, ep4GameServerUrl, config.at_path("redirect.ep4.game_server").value_or(fallbackUrl).data(), "Ep4 Game Server");
+
+	// CN Servers
+	AF_SERVER_REDIRECT(name, patchServerCnUrl, config.at_path("redirect.cn.patch_server").value_or(fallbackUrl).data(), "CN Patch Server");
+	AF_SERVER_REDIRECT(name, gameServerCnUrl, config.at_path("redirect.cn.game_server").value_or(fallbackUrl).data(), "CN Game Server");
+
+	hostnameResult = pOriginalGetHostByName(buf);
 
 	return hostnameResult;
 }
@@ -53,9 +116,28 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
 	if (fdwReason == DLL_PROCESS_ATTACH)
 	{
-		//DisableThreadLibraryCalls(hinstDLL);
-
+		const char* configFilename = "psobb.cfg";
 		char bufd[200];
+
+
+		if (!std::filesystem::exists(configFilename))
+		{
+			sprintf_s(buf, sizeof(buf), "%s could not be found. Please ensure it exists.\nThe game will close now.", configFilename);
+			MessageBoxA(NULL, buf, "AzureFlare Config Error", MB_OK);
+			ExitProcess(1);
+		}
+
+		// Load configuration file
+		try
+		{
+			config = toml::parse_file(configFilename);
+		}
+		catch (const toml::parse_error& err)
+		{
+			MessageBoxA(NULL, "There was an error loading the configuration. Please check the file.\nThe game will close now.", "AzureFlare Config Error", MB_OK);
+			ExitProcess(1);
+		}
+
 		GetSystemDirectoryA(bufd, 200);
 		strcat_s(bufd, "\\WSOCK32.dll");
 
@@ -69,6 +151,15 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		// Load the gethostbyname function separately
 		pOriginalGetHostByName = reinterpret_cast<OriginalGetHostByName>(GetProcAddress(hDLL, "gethostbyname"));
+
+#if _DEBUG
+		SetConsoleOutputCP(65001);
+		AllocConsole();
+		AttachConsole(GetCurrentProcessId());
+		freopen("CON", "w", stdout);
+#endif
+
+		loaded = TRUE;
 	}
 
 	if (fdwReason == DLL_PROCESS_DETACH)
