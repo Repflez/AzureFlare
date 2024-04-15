@@ -73,43 +73,41 @@ typedef struct hostent* (WINAPI* OriginalGetHostByName)(const char*);
 OriginalGetHostByName pOriginalGetHostByName = nullptr;
 
 bool loaded = FALSE;
-char buf[256];
+bool canRedirectServers = TRUE;
 toml::table config;
 
-#define AF_SERVER_REDIRECT(passedValue, origAddr, newAddr, comment) \
+#define AF_SERVER_REDIRECT(outBuffer, passedValue, origAddr, newAddr, comment) \
 if (strcmp(passedValue, origAddr) == 0) \
 { \
-passedValue = newAddr; \
-}\
+    strncpy_s(outBuffer, newAddr, strnlen_s(newAddr, 256)); \
+	DLOG("Redirecting %s to %s\n", comment, newAddr); \
+}
 
+// Note: Performance is a non issue here as it's only called twice: Patch Screen and Connection screen.
 extern "C" hostent * __stdcall _AZFLARE_EXPORT_gethostbyname(char* name)
 {
-	if (!loaded)
+	if (!loaded || !canRedirectServers)
 		return pOriginalGetHostByName(name);
 
-	hostent* hostnameResult;
-
-	sprintf_s(buf, sizeof(buf), name);
+	char buf[256] = "";
 
 	// US Servers
-	AF_SERVER_REDIRECT(name, patchServerUsUrl, config.at_path("redirect.us.patch_server").value_or(fallbackUrl).data(), "US Patch Server");
-	AF_SERVER_REDIRECT(name, gameServerUsUrl, config.at_path("redirect.us.game_server").value_or(fallbackUrl).data(), "US Game Server");
+	AF_SERVER_REDIRECT(buf, name, patchServerUsUrl, config.at_path("redirect.us.patch_server").value_or(fallbackUrl), "US Patch Server");
+	AF_SERVER_REDIRECT(buf, name, gameServerUsUrl, config.at_path("redirect.us.game_server").value_or(fallbackUrl), "US Game Server");
 
 	// JP Servers
-	AF_SERVER_REDIRECT(name, patchServerJpUrl, config.at_path("redirect.jp.patch_server").value_or(fallbackUrl).data(), "JP Patch Server");
-	AF_SERVER_REDIRECT(name, gameServerJpUrl, config.at_path("redirect.jp.game_server").value_or(fallbackUrl).data(), "JP Game Server");
+	AF_SERVER_REDIRECT(buf, name, patchServerJpUrl, config.at_path("redirect.jp.patch_server").value_or(fallbackUrl), "JP Patch Server");
+	AF_SERVER_REDIRECT(buf, name, gameServerJpUrl, config.at_path("redirect.jp.game_server").value_or(fallbackUrl), "JP Game Server");
 
 	// Episode 4 Servers
-	AF_SERVER_REDIRECT(name, ep4PatchServerUrl, config.at_path("redirect.ep4.patch_server").value_or(fallbackUrl).data(), "Ep4 Patch Server");
-	AF_SERVER_REDIRECT(name, ep4GameServerUrl, config.at_path("redirect.ep4.game_server").value_or(fallbackUrl).data(), "Ep4 Game Server");
+	AF_SERVER_REDIRECT(buf, name, ep4PatchServerUrl, config.at_path("redirect.ep4.patch_server").value_or(fallbackUrl), "Ep4 Patch Server");
+	AF_SERVER_REDIRECT(buf, name, ep4GameServerUrl, config.at_path("redirect.ep4.game_server").value_or(fallbackUrl), "Ep4 Game Server");
 
 	// CN Servers
-	AF_SERVER_REDIRECT(name, patchServerCnUrl, config.at_path("redirect.cn.patch_server").value_or(fallbackUrl).data(), "CN Patch Server");
-	AF_SERVER_REDIRECT(name, gameServerCnUrl, config.at_path("redirect.cn.game_server").value_or(fallbackUrl).data(), "CN Game Server");
+	AF_SERVER_REDIRECT(buf, name, patchServerCnUrl, config.at_path("redirect.cn.patch_server").value_or(fallbackUrl), "CN Patch Server");
+	AF_SERVER_REDIRECT(buf, name, gameServerCnUrl, config.at_path("redirect.cn.game_server").value_or(fallbackUrl), "CN Game Server");
 
-	hostnameResult = pOriginalGetHostByName(buf);
-
-	return hostnameResult;
+	return pOriginalGetHostByName(buf);
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
@@ -117,9 +115,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 	if (fdwReason == DLL_PROCESS_ATTACH)
 	{
 		const char* configFilename = "psobb.cfg";
-		char bufd[200];
+		char bufd[200], buf[256];
 
-
+		// Check if the configuration exists
 		if (!std::filesystem::exists(configFilename))
 		{
 			sprintf_s(buf, sizeof(buf), "%s could not be found. Please ensure it exists.\nThe game will close now.", configFilename);
@@ -131,6 +129,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		try
 		{
 			config = toml::parse_file(configFilename);
+
+			// As the configuration is loaded now, we can start setting the values we need to.
+			canRedirectServers = config.at_path("patches.redirect").value_or(false);
 		}
 		catch (const toml::parse_error& err)
 		{
