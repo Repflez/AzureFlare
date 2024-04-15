@@ -9,7 +9,7 @@ At the time of writing this README:
 * GameGuard bypass (The official client can't start without as it tries to connect to a nonexistent server)
 
 ## Why AzureFlare?
-I looked for ynonyms of Blue and Burst repectively and took 2 at random.
+I looked for synonyms of Blue and Burst repectively and took 2 at random.
 
 ## Download
 Head on to the [Downloads page](https://github.com/Repflez/AzureFlare/releases).
