@@ -10,7 +10,6 @@
 #include <detours/detours.h>
 #include <toml++/toml.hpp>
 
-#include "dllmain.h"
 #include "gameguard.h"
 
 using namespace std::string_view_literals;

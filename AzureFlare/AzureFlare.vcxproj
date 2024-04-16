@@ -102,7 +102,6 @@
     <None Include="wsock32.def" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="dllmain.h" />
     <ClInclude Include="gameguard.h" />
     <ClInclude Include="memory.h" />
   </ItemGroup>
