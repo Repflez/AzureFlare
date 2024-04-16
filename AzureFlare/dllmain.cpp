@@ -1,4 +1,5 @@
 #define WIN32_LEAN_AND_MEAN
+#define TOML_ENABLE_FORMATTERS 0
 
 #include <windows.h>
 #include <winsock.h>
@@ -6,7 +7,11 @@
 
 #include <filesystem>
 
+#include <detours/detours.h>
 #include <toml++/toml.hpp>
+
+#include "dllmain.h"
+#include "gameguard.h"
 
 using namespace std::string_view_literals;
 
@@ -41,18 +46,25 @@ using namespace std::string_view_literals;
 
 #pragma region Server Urls
 
-// Non Episode 4 Urls
-const char* patchServerUsUrl = "patch01.us.segaonline.jp";
-const char* patchServerJpUrl = "patch01.psobb.segaonline.jp";
-const char* patchServerCnUrl = "patch.psobb.cn"; // There's some psobb.cn domains in the EXE
-const char* gameServerUsUrl = "game01.us.segaonline.jp";
-const char* gameServerJpUrl = "game01.psobb.segaonline.jp";
-const char* gameServerCnUrl = "db.psobb.cn";
+// Server Urls
 
-// Episode 4 Urls
+// US Servers
+const char* patchServerUsUrl = "patch01.us.segaonline.jp";
+const char* gameServerUsUrl = "game01.us.segaonline.jp";
+
+// JP Non Ep4 Servers
+const char* patchServerJpUrl = "patch01.psobb.segaonline.jp";
+const char* gameServerJpUrl = "game01.psobb.segaonline.jp";
+
+// JP Ep4 Urls
 // Notes: EP4 was released separately in Japan, it was bundled elsewhere as Blue Burst
 const char* ep4PatchServerUrl = "psobb-ep4-patch.segaonline.jp";
 const char* ep4GameServerUrl = "psobb-ep4-db.segaonline.jp";
+
+// CN Servers
+// Notes: There's some psobb.cn domains in the EXE
+const char* patchServerCnUrl = "patch.psobb.cn";
+const char* gameServerCnUrl = "db.psobb.cn";
 
 // Fallback, in case the property is missing from the config file
 const char* fallbackUrl = "localhost";
@@ -74,12 +86,13 @@ OriginalGetHostByName pOriginalGetHostByName = nullptr;
 
 bool loaded = FALSE;
 bool canRedirectServers = TRUE;
+bool canBypassGameGuard = false;
 toml::table config;
 
 #define AF_SERVER_REDIRECT(outBuffer, passedValue, origAddr, newAddr, comment) \
 if (strcmp(passedValue, origAddr) == 0) \
 { \
-    strncpy_s(outBuffer, newAddr, strnlen_s(newAddr, 256)); \
+    strncpy_s(outBuffer, newAddr, strnlen_s(newAddr, sizeof(outBuffer))); \
 	DLOG("Redirecting %s to %s\n", comment, newAddr); \
 }
 
@@ -129,17 +142,14 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		try
 		{
 			config = toml::parse_file(configFilename);
-
-			// As the configuration is loaded now, we can start setting the values we need to.
-			canRedirectServers = config.at_path("patches.redirect").value_or(false);
 		}
-		catch (const toml::parse_error& err)
+		catch (toml::parse_error& _)
 		{
 			MessageBoxA(NULL, "There was an error loading the configuration. Please check the file.\nThe game will close now.", "AzureFlare Config Error", MB_OK);
 			ExitProcess(1);
 		}
 
-		GetSystemDirectoryA(bufd, 200);
+		GetSystemDirectoryA(bufd, sizeof(bufd));
 		strcat_s(bufd, "\\WSOCK32.dll");
 
 		hDLL = LoadLibraryA(bufd);
@@ -160,12 +170,40 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		freopen("CON", "w", stdout);
 #endif
 
+		// As the configuration is loaded now, we can start setting the values we need to.
+		canRedirectServers = config.at_path("patches.redirect").value_or(false);
+		canBypassGameGuard = config.at_path("patches.gameguard").value_or(false);
+
+		DetourTransactionBegin();
+		DetourUpdateThread(GetCurrentThread());
+
+		// Bypass GameGuard if we enabled the patch
+		if (canBypassGameGuard)
+		{
+			PatchGameGuard();
+		}
+
+		DetourTransactionCommit();
+
 		loaded = TRUE;
 	}
 
 	if (fdwReason == DLL_PROCESS_DETACH)
 	{
 		pOriginalGetHostByName = nullptr;
+
+		// Clean the detours we made
+		DetourTransactionBegin();
+		DetourUpdateThread(GetCurrentThread());
+
+		// Clean up GameGuard if we enabled the bypass
+		if (canBypassGameGuard)
+		{
+			UnpatchGameGuard();
+		}
+
+		// Finalize the transaction
+		DetourTransactionCommit();
 		FreeLibrary(hDLL);
 	}
 
