@@ -3,10 +3,13 @@ AzureFlare is a drop in dll mod for the official PSOBB client to allow for modif
 
 ## What it can do?
 At the time of writing this README:
-* Server redirection for US, JP, Ep4 and CN modes respectively.
+* Server redirection for US, JP, Ep4 and CN modes respectively
+* GameGuard bypass
 
 ## To do
-* GameGuard bypass (The official client can't start without as it tries to connect to a nonexistent server)
+* Make the bypass work on the packed original EXE
+* Allow changing the language of the game so it can load the US localization
+* IME fixes so it can be used without a JP locale for the keyboard
 
 ## Why AzureFlare?
 I looked for synonyms of Blue and Burst repectively and took 2 at random.
