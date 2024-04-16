@@ -19,7 +19,7 @@ typedef BOOL(WINAPI* OriginalCreateProcessA)(
 typedef unsigned int (*OriginalGameGuardInit)();
 
 // Typedef for the original PreInitNPGameMonA
-typedef int __cdecl OriginalPreInitNPGameMonA(char* a1);
+typedef int (*OriginalPreInitNPGameMonA)(char* a1);
 
 void PatchGameGuard();
 void UnpatchGameGuard();

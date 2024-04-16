@@ -29,6 +29,9 @@ OriginalCreateProcessA originalCreateProcessA = CreateProcessA;
 // Pointer to the original InitNPGameMon
 OriginalGameGuardInit originalGameGuardInit = nullptr;
 
+// Pointer to the original PreInitNPGameMonA
+OriginalPreInitNPGameMonA originalPreInitGameGuard = nullptr;
+
 // GameGuard Process Name
 const char* GameGuardProcessName = "GameGuard.des";
 
@@ -71,6 +74,11 @@ unsigned int BypassGameGuardInit()
 	return NPGAMEMON_SUCCESS;
 }
 
+int __cdecl BypassGameGuardPreInit(char* a1)
+{
+	return NPGAMEMON_SUCCESS;
+}
+
 void PatchGameGuard()
 {
 	// Get the base address of psobb.exe
@@ -87,14 +95,27 @@ void PatchGameGuard()
 		DetourAttach(&reinterpret_cast<PVOID&>(originalGameGuardInit), BypassGameGuardInit);
 	}
 
+	// Find the address for PreInitNPGameMonA
+	// TODO: Get the packed EXE to work as well
+	// Notes: Bypassing this function will avoid generating the GameGuard folder and its sole npgl.erl file
+	void* PreInitNPGameMonAddress = FindPatternInModule(hModule, PreInitNPGameMonASignature, sizeof(PreInitNPGameMonASignature));
+	if (PreInitNPGameMonAddress != nullptr)
+	{
+		originalPreInitGameGuard = reinterpret_cast<OriginalPreInitNPGameMonA>(PreInitNPGameMonAddress);
+
+		// Attach our second GameGuard Bypass
+		DetourAttach(&reinterpret_cast<PVOID&>(originalPreInitGameGuard), BypassGameGuardPreInit);
+	}
+
 	// Detour CreateProcessA to bypass GameGuard
 	DetourAttach(&reinterpret_cast<PVOID&>(originalCreateProcessA), CreateProcessGameGuard);
 }
 
 void UnpatchGameGuard()
 {
-	//DetourDetach(&(PVOID&)originalCreateProcessA, CreateProcessGameGuard);
 	DetourDetach(&reinterpret_cast<PVOID&>(originalCreateProcessA), CreateProcessGameGuard);
 
+	// Remove our GameGuard bypasses, at this point the game is closing, so we shouldn't worry about null pointers here?
 	DetourDetach(&reinterpret_cast<PVOID&>(originalGameGuardInit), BypassGameGuardInit);
+	DetourDetach(&reinterpret_cast<PVOID&>(originalPreInitGameGuard), BypassGameGuardPreInit);
 }
