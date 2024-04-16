@@ -24,6 +24,9 @@
     <ClCompile Include="gameguard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="gameregion.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="wsock32.def">
@@ -35,6 +38,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="memory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="gameregion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

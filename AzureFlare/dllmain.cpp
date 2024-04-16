@@ -11,6 +11,7 @@
 #include <toml++/toml.hpp>
 
 #include "gameguard.h"
+#include "gameregion.h"
 
 using namespace std::string_view_literals;
 
@@ -182,6 +183,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			PatchGameGuard();
 		}
 
+		// Set Episode 4 mode if it was set on config
+		PatchEpisode4Mode(config.at_path("patches.episode4_mode").value_or(false));
+
 		DetourTransactionCommit();
 
 		loaded = TRUE;
@@ -200,6 +204,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		{
 			UnpatchGameGuard();
 		}
+
+		// Remove the Episode 4 patch
+		UnpatchEpisode4Mode();
 
 		// Finalize the transaction
 		DetourTransactionCommit();
