@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <toml++/toml.hpp>
 
 // Typedef for the original CreateProcessA function
 typedef BOOL(WINAPI* OriginalCreateProcessA)(
@@ -21,5 +22,5 @@ typedef unsigned int (*OriginalGameGuardInit)();
 // Typedef for the original PreInitNPGameMonA
 typedef int (*OriginalPreInitNPGameMonA)(char* a1);
 
-void PatchGameGuard();
+void PatchGameGuard(toml::table config);
 void UnpatchGameGuard();

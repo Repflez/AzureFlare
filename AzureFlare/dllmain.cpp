@@ -183,7 +183,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		// Bypass GameGuard if we enabled the patch
 		if (canBypassGameGuard)
 		{
-			PatchGameGuard();
+			PatchGameGuard(config);
 		}
 
 		// Set Episode 4 mode if it was set on config

@@ -1,14 +1,17 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
+#include <intrin.h>
 
 #include <iostream>
-#include <cstring>  // For C string functions
 
+#include <toml++/toml.hpp>
 #include <detours/detours.h>
 
 #include "memory.h"
 #include "gameguard.h"
+
+#pragma intrinsic(_ReturnAddress)
 
 #define NPGAMEMON_SUCCESS 0x755
 
@@ -23,6 +26,12 @@ BYTE InitNPGameMonSignature[] = { 0x8B, 0x0D, 0xCC, 0xCC, 0xCC, 0xCC, 0x85, 0xC9
 // https://github.com/fatrolls/nProtect-GameGuard/blob/164940ba81d318c300234c75f04da1412b554621/old/NPGameLib.c#L25
 BYTE PreInitNPGameMonASignature[] = { 0xA1, 0xCC, 0xCC, 0xCC, 0xCC, 0x53, 0x33, 0xDB, 0x3B, 0xC3, 0x74, 0x04 };
 
+// Signature for the function that decides if the game is Episode 4 or not
+BYTE IsEp4Signature[] = { 0xB8, 0x30, 0x11, 0x00, 0x00 };
+
+// Typedef for the GameRegion function
+typedef bool (*OriginalIsEp4)();
+
 // Pointer to the original CreateProcessA
 OriginalCreateProcessA originalCreateProcessA = CreateProcessA;
 
@@ -32,8 +41,16 @@ OriginalGameGuardInit originalGameGuardInit = nullptr;
 // Pointer to the original PreInitNPGameMonA
 OriginalPreInitNPGameMonA originalPreInitGameGuard = nullptr;
 
+// Pointer to the original game region function
+OriginalIsEp4 originalIsEp4Address = nullptr;
+
+// Pointer to the original GetStartupInfoA
+auto startupInfoA = static_cast<decltype(GetStartupInfoA)*>(GetStartupInfoA);
+
 // GameGuard Process Name
 const char* GameGuardProcessName = "GameGuard.des";
+
+toml::table az_config;
 
 // Custom detour function for CreateProcessA
 BOOL WINAPI CreateProcessGameGuard(
@@ -76,16 +93,19 @@ unsigned int BypassGameGuardInit()
 
 int __cdecl BypassGameGuardPreInit(char* a1)
 {
-	return NPGAMEMON_SUCCESS;
+	// Seems to work if I send any non-zero value, or 0
+	// I'm sending a non-zero value for now.
+	return 1;
 }
 
-void PatchGameGuard()
+int IsEp4()
 {
-	// Get the base address of psobb.exe
-	HMODULE hModule = GetModuleHandle(NULL);
+	return az_config.at_path("patches.episode4_mode").value_or(false);
+}
 
+void ApplyGameGuardPatches(HMODULE hModule)
+{
 	// Find the address for InitNPGameMon
-	// TODO: Get the packed EXE to work as well
 	void* InitNPGameMonAddress = FindPatternInModule(hModule, InitNPGameMonSignature, sizeof(InitNPGameMonSignature));
 	if (InitNPGameMonAddress != nullptr)
 	{
@@ -96,7 +116,6 @@ void PatchGameGuard()
 	}
 
 	// Find the address for PreInitNPGameMonA
-	// TODO: Get the packed EXE to work as well
 	// Notes: Bypassing this function will avoid generating the GameGuard folder and its sole npgl.erl file
 	void* PreInitNPGameMonAddress = FindPatternInModule(hModule, PreInitNPGameMonASignature, sizeof(PreInitNPGameMonASignature));
 	if (PreInitNPGameMonAddress != nullptr)
@@ -106,6 +125,61 @@ void PatchGameGuard()
 		// Attach our second GameGuard Bypass
 		DetourAttach(&reinterpret_cast<PVOID&>(originalPreInitGameGuard), BypassGameGuardPreInit);
 	}
+}
+
+void WINAPI AZ_GetStartUpInfoA(LPSTARTUPINFOA lpStartupInfo)
+{
+	uintptr_t baseAddress = reinterpret_cast<uintptr_t>(_ReturnAddress());
+	const auto caller = GetOwningModule(baseAddress);
+	if (caller == GetModuleHandleA("PsoBB.exe"))
+	{
+		uintptr_t address = ScanProcessMemory(InitNPGameMonSignature, "xx????xxxxxxxx????x", 0, 0x01000000);
+
+		// Restarting the entire detours process makes it work. No idea why.
+		if (address != 0) {
+			DetourTransactionBegin();
+			DetourUpdateThread(GetCurrentThread());
+			originalGameGuardInit = reinterpret_cast<OriginalGameGuardInit>(address);
+			DetourAttach(&reinterpret_cast<PVOID&>(originalGameGuardInit), BypassGameGuardInit);
+
+			DetourTransactionCommit();
+		}
+
+		address = ScanProcessMemory(PreInitNPGameMonASignature, "x????xxxxxxx", 0, 0x01000000);
+
+		if (address != 0) {
+			DetourTransactionBegin();
+			DetourUpdateThread(GetCurrentThread());
+			originalPreInitGameGuard = reinterpret_cast<OriginalPreInitNPGameMonA>(address);
+			DetourAttach(&reinterpret_cast<PVOID&>(originalPreInitGameGuard), BypassGameGuardPreInit);
+
+			DetourTransactionCommit();
+		}
+
+		// Patch episode 4 data now
+		address = ScanProcessMemory(IsEp4Signature, "xxxxx", 0, 0x01000000);
+		if (address != 0) {
+			DetourTransactionBegin();
+			DetourUpdateThread(GetCurrentThread());
+			originalIsEp4Address = reinterpret_cast<OriginalIsEp4>(address);
+			DetourAttach(&reinterpret_cast<PVOID&>(originalIsEp4Address), IsEp4);
+
+			DetourTransactionCommit();
+		}
+	}
+
+	return startupInfoA(lpStartupInfo);
+}
+
+void PatchGameGuard(toml::table config)
+{
+	az_config = config;
+
+	// Patch the GameGuard functions for unpacked versions of the client
+	ApplyGameGuardPatches(GetModuleHandle(NULL));
+
+	// Hook into GetStartupInfoA to allow using the packed EXE
+	DetourAttach(&reinterpret_cast<PVOID&>(startupInfoA), AZ_GetStartUpInfoA);
 
 	// Detour CreateProcessA to bypass GameGuard
 	DetourAttach(&reinterpret_cast<PVOID&>(originalCreateProcessA), CreateProcessGameGuard);

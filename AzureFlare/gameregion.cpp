@@ -22,13 +22,11 @@ int IsEpisode4()
 
 void PatchEpisode4Mode(int value)
 {
-	// Get the base address of psobb.exe
-	HMODULE hModule = GetModuleHandle(NULL);
-
 	// Set the value from the config
 	IsEpisode4Value = value;
 
-	void* IsEpisode4Address = FindPatternInModule(hModule, IsEpisode4Signature, sizeof(IsEpisode4Signature));
+	// Get the base address of psobb.exe
+	void* IsEpisode4Address = FindPatternInModule(GetModuleHandle(NULL), IsEpisode4Signature, sizeof(IsEpisode4Signature));
 	if (IsEpisode4Address != nullptr)
 	{
 		originalIsEpisode4Address = reinterpret_cast<OriginalIsEpisode4>(IsEpisode4Address);

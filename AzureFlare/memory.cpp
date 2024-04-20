@@ -1,7 +1,10 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <psapi.h>
+#include <vector>
 #include <iostream>
+#include <cstdint>
+#include <algorithm>
 
 #include "memory.h"
 
@@ -9,14 +12,12 @@
 
 void* FindPatternInModule(HMODULE hModule, BYTE* pattern, SIZE_T patternSize) {
 	if (hModule == nullptr) {
-		std::cout << "module is null????" << std::endl;
 		return nullptr;
 	}
 
 	// Get the module information to determine its memory range
 	MODULEINFO moduleInfo;
 	if (!GetModuleInformation(GetCurrentProcess(), hModule, &moduleInfo, sizeof(MODULEINFO))) {
-		std::cout << "could not get module information" << std::endl;
 		return nullptr;
 	}
 
@@ -37,4 +38,41 @@ void* FindPatternInModule(HMODULE hModule, BYTE* pattern, SIZE_T patternSize) {
 	}
 
 	return nullptr;
+}
+
+uintptr_t ScanProcessMemory(const uint8_t* pattern, const char* mask, uintptr_t startAddress, uintptr_t endAddress) {
+	size_t patternSize = strlen(mask);
+
+	for (uintptr_t address = startAddress; address < endAddress; ) {
+		MEMORY_BASIC_INFORMATION memInfo;
+		if (VirtualQuery(reinterpret_cast<LPCVOID>(address), &memInfo, sizeof(memInfo)) == sizeof(memInfo)) {
+			if (memInfo.State == MEM_COMMIT && (memInfo.Protect == PAGE_READWRITE || memInfo.Protect == PAGE_EXECUTE_READWRITE)) {
+				size_t bufferSize = std::min<size_t>(memInfo.RegionSize, endAddress - address);
+
+				std::vector<uint8_t> buffer(bufferSize);
+				SIZE_T bytesRead;
+				if (ReadProcessMemory(GetCurrentProcess(), memInfo.BaseAddress, buffer.data(), bufferSize, &bytesRead)) {
+					for (size_t i = 0; i <= bytesRead - patternSize; ++i) {
+						bool found = true;
+						for (size_t j = 0; j < patternSize; ++j) {
+							if (mask[j] != '?' && buffer[i + j] != pattern[j]) {
+								found = false;
+								break;
+							}
+						}
+						if (found) {
+							return address + i;
+						}
+					}
+				}
+			}
+
+			address += memInfo.RegionSize;
+		}
+		else {
+			address += 0x1000;
+		}
+	}
+
+	return 0;
 }
