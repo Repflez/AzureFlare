@@ -1,20 +1,22 @@
+LIBRARY WSOCK32
+
 EXPORTS
-__WSAFDIsSet=_AZFLARE_EXPORT___WSAFDIsSet @151
-closesocket=_AZFLARE_EXPORT_closesocket @3
-connect=_AZFLARE_EXPORT_connect @4
-gethostbyaddr=_AZFLARE_EXPORT_gethostbyaddr @51
-gethostbyname=_AZFLARE_EXPORT_gethostbyname @52
-getsockopt=_AZFLARE_EXPORT_getsockopt @7
-htons=_AZFLARE_EXPORT_htons @9
-inet_addr=_AZFLARE_EXPORT_inet_addr @10
-recv=_AZFLARE_EXPORT_recv @16
-recvfrom=_AZFLARE_EXPORT_recvfrom @17
-select=_AZFLARE_EXPORT_select @18
-send=_AZFLARE_EXPORT_send @19
-sendto=_AZFLARE_EXPORT_sendto @20
-setsockopt=_AZFLARE_EXPORT_setsockopt @21
-shutdown=_AZFLARE_EXPORT_shutdown @22
-socket=_AZFLARE_EXPORT_socket @23
-WSACleanup=_AZFLARE_EXPORT_WSACleanup @116
-WSAGetLastError=_AZFLARE_EXPORT_WSAGetLastError @111
-WSAStartup=_AZFLARE_EXPORT_WSAStartup @115
+	__WSAFDIsSet=_AZFLARE_EXPORT___WSAFDIsSet @151
+	closesocket=_AZFLARE_EXPORT_closesocket @3
+	connect=_AZFLARE_EXPORT_connect @4
+	gethostbyaddr=_AZFLARE_EXPORT_gethostbyaddr @51
+	gethostbyname=_AZFLARE_EXPORT_gethostbyname @52
+	getsockopt=_AZFLARE_EXPORT_getsockopt @7
+	htons=_AZFLARE_EXPORT_htons @9
+	inet_addr=_AZFLARE_EXPORT_inet_addr @10
+	recv=_AZFLARE_EXPORT_recv @16
+	recvfrom=_AZFLARE_EXPORT_recvfrom @17
+	select=_AZFLARE_EXPORT_select @18
+	send=_AZFLARE_EXPORT_send @19
+	sendto=_AZFLARE_EXPORT_sendto @20
+	setsockopt=_AZFLARE_EXPORT_setsockopt @21
+	shutdown=_AZFLARE_EXPORT_shutdown @22
+	socket=_AZFLARE_EXPORT_socket @23
+	WSACleanup=_AZFLARE_EXPORT_WSACleanup @116
+	WSAGetLastError=_AZFLARE_EXPORT_WSAGetLastError @111
+	WSAStartup=_AZFLARE_EXPORT_WSAStartup @115
