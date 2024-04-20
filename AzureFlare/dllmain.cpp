@@ -104,6 +104,9 @@ extern "C" hostent * __stdcall _AZFLARE_EXPORT_gethostbyname(char* name)
 
 	char buf[256] = "";
 
+	// Fallback in case no matches are found. See Teth EXEs using IP Addresses.
+	AF_SERVER_REDIRECT(buf, name, name, name, "Fallback");
+
 	// US Servers
 	AF_SERVER_REDIRECT(buf, name, patchServerUsUrl, config.at_path("redirect.us.patch_server").value_or(fallbackUrl), "US Patch Server");
 	AF_SERVER_REDIRECT(buf, name, gameServerUsUrl, config.at_path("redirect.us.game_server").value_or(fallbackUrl), "US Game Server");
