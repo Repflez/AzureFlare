@@ -19,4 +19,4 @@ Anything that is compatible with only Teth executables. For patches concerning t
 I looked for synonyms of Blue and Burst repectively and took 2 at random.
 
 ## Download
-Head on to the [Downloads page](https://github.com/Repflez/AzureFlare/releases).
+Head on to the [Downloads page](https://github.com/Repflez/AzureFlare/releases). You will need the [latest C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) to be able to use AzureFlare.
