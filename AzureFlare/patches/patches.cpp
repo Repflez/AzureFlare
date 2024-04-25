@@ -50,7 +50,7 @@ void WINAPI AZ_GetStartUpInfoA(LPSTARTUPINFOA lpStartupInfo)
 		// Patch Eepisode 4 Status
 		if (isEpisode4Enabled)
 		{
-			//PatchPackedEpisode4State(isEpisode4Enabled);
+			PatchPackedEpisode4State(isEpisode4Enabled);
 		}
 	}
 
@@ -90,6 +90,6 @@ void DoMemoryPatches(toml::table config)
 	// Patch Eepisode 4 Status
 	if (isEpisode4Enabled)
 	{
-		//PatchUnpackedEpisode4State(isEpisode4Enabled);
+		PatchUnpackedEpisode4State(isEpisode4Enabled);
 	}
 }
