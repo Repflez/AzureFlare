@@ -4,7 +4,8 @@
 #include <vector>
 
 void* FindPatternInModule(HMODULE hModule, BYTE* pattern, SIZE_T patternSize);
-uintptr_t ScanProcessMemory(const uint8_t* pattern, const char* mask, uintptr_t startAddress, uintptr_t endAddress);
+uintptr_t ScanSliceProcessMemory(const uint8_t* pattern, const char* mask, uintptr_t startAddress, uintptr_t endAddress);
+uintptr_t ScanProcessMemory(const uint8_t* pattern, const char* mask);
 
 
 static inline HMODULE __stdcall GetOwningModule(const uintptr_t address)

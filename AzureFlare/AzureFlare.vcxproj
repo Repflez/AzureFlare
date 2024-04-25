@@ -95,17 +95,24 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="gameguard.cpp" />
-    <ClCompile Include="gameregion.cpp" />
     <ClCompile Include="memory.cpp" />
+    <ClCompile Include="patches\gameguard.cpp" />
+    <ClCompile Include="patches\input.cpp" />
+    <ClCompile Include="patches\language.cpp" />
+    <ClCompile Include="patches\misc.cpp" />
+    <ClCompile Include="patches\patches.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="wsock32.def" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="gameguard.h" />
-    <ClInclude Include="gameregion.h" />
+    <ClInclude Include="logging.h" />
     <ClInclude Include="memory.h" />
+    <ClInclude Include="patches\gameguard.h" />
+    <ClInclude Include="patches\input.h" />
+    <ClInclude Include="patches\language.h" />
+    <ClInclude Include="patches\misc.h" />
+    <ClInclude Include="patches\patches.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

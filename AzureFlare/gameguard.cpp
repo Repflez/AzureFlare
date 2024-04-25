@@ -2,18 +2,23 @@
 #include <windows.h>
 #include <stdio.h>
 #include <intrin.h>
-
+#include <Psapi.h>
 #include <iostream>
 
 #include <toml++/toml.hpp>
 #include <detours/detours.h>
 
+#include "logging.h"
+#include "signatures.h"
 #include "memory.h"
 #include "gameguard.h"
 
 #pragma intrinsic(_ReturnAddress)
 
 #define NPGAMEMON_SUCCESS 0x755
+
+#define PSOBB_REGION_START 0x401000
+#define PSOBB_REGION_END PSOBB_REGION_START + 0x638000
 
 // Signature for InitNPGameMon
 // Notes: return value seems to be an unsigned int? some places say it's a DWORD, others unsigned int
@@ -26,12 +31,6 @@ BYTE InitNPGameMonSignature[] = { 0x8B, 0x0D, 0xCC, 0xCC, 0xCC, 0xCC, 0x85, 0xC9
 // https://github.com/fatrolls/nProtect-GameGuard/blob/164940ba81d318c300234c75f04da1412b554621/old/NPGameLib.c#L25
 BYTE PreInitNPGameMonASignature[] = { 0xA1, 0xCC, 0xCC, 0xCC, 0xCC, 0x53, 0x33, 0xDB, 0x3B, 0xC3, 0x74, 0x04 };
 
-// Signature for the function that decides if the game is Episode 4 or not
-BYTE IsEp4Signature[] = { 0xB8, 0x30, 0x11, 0x00, 0x00 };
-
-// Typedef for the GameRegion function
-typedef bool (*OriginalIsEp4)();
-
 // Pointer to the original CreateProcessA
 OriginalCreateProcessA originalCreateProcessA = CreateProcessA;
 
@@ -43,6 +42,8 @@ OriginalPreInitNPGameMonA originalPreInitGameGuard = nullptr;
 
 // Pointer to the original game region function
 OriginalIsEp4 originalIsEp4Address = nullptr;
+
+OriginalGetGameLanguage originalGameLanguage = nullptr;
 
 // Pointer to the original GetStartupInfoA
 auto startupInfoA = static_cast<decltype(GetStartupInfoA)*>(GetStartupInfoA);
@@ -98,6 +99,18 @@ int __cdecl BypassGameGuardPreInit(char* a1)
 	return 1;
 }
 
+int GetGameLanguage() {
+	// 0: Japanese (j)
+	// 1: English (e)
+	// 2: German (g)
+	// 3: French (f)
+	// 4: Spanish (s)
+	// 5: Chinese Simplified (cs)
+	// 6: Chinese Traditional (ct)
+	// 7: Korean (h)
+	return 1;
+}
+
 int IsEp4()
 {
 	return az_config.at_path("patches.episode4_mode").value_or(false);
@@ -129,11 +142,10 @@ void ApplyGameGuardPatches(HMODULE hModule)
 
 void WINAPI AZ_GetStartUpInfoA(LPSTARTUPINFOA lpStartupInfo)
 {
-	uintptr_t baseAddress = reinterpret_cast<uintptr_t>(_ReturnAddress());
-	const auto caller = GetOwningModule(baseAddress);
+	const auto caller = GetOwningModule(reinterpret_cast<uintptr_t>(_ReturnAddress()));
 	if (caller == GetModuleHandleA("PsoBB.exe"))
 	{
-		uintptr_t address = ScanProcessMemory(InitNPGameMonSignature, "xx????xxxxxxxx????x", 0, 0x01000000);
+		uintptr_t address = ScanProcessMemory(InitNPGameMonSignature, "xx????xxxxxxxx????x", PSOBB_REGION_START, PSOBB_REGION_END);
 
 		// Restarting the entire detours process makes it work. No idea why.
 		if (address != 0) {
@@ -145,8 +157,7 @@ void WINAPI AZ_GetStartUpInfoA(LPSTARTUPINFOA lpStartupInfo)
 			DetourTransactionCommit();
 		}
 
-		address = ScanProcessMemory(PreInitNPGameMonASignature, "x????xxxxxxx", 0, 0x01000000);
-
+		address = ScanProcessMemory(PreInitNPGameMonASignature, "x????xxxxxxx", PSOBB_REGION_START, PSOBB_REGION_END);
 		if (address != 0) {
 			DetourTransactionBegin();
 			DetourUpdateThread(GetCurrentThread());
@@ -157,23 +168,67 @@ void WINAPI AZ_GetStartUpInfoA(LPSTARTUPINFOA lpStartupInfo)
 		}
 
 		// Patch episode 4 data now
-		address = ScanProcessMemory(IsEp4Signature, "xxxxx", 0, 0x01000000);
+		address = ScanProcessMemory(IsEp4Signature, "xxxxx", PSOBB_REGION_START, PSOBB_REGION_END);
 		if (address != 0) {
 			DetourTransactionBegin();
 			DetourUpdateThread(GetCurrentThread());
+
 			originalIsEp4Address = reinterpret_cast<OriginalIsEp4>(address);
 			DetourAttach(&reinterpret_cast<PVOID&>(originalIsEp4Address), IsEp4);
 
 			DetourTransactionCommit();
+		}
+
+		// Game Language
+		address = ScanProcessMemory(GameLanguageSignature, "xxxxx", PSOBB_REGION_START, PSOBB_REGION_END);
+		if (address != 0) {
+			DetourTransactionBegin();
+			DetourUpdateThread(GetCurrentThread());
+
+			originalGameLanguage = reinterpret_cast<OriginalGetGameLanguage>(address);
+			DetourAttach(&reinterpret_cast<PVOID&>(originalGameLanguage), GetGameLanguage);
+
+			DetourTransactionCommit();
+		}
+
+
+		address = ScanProcessMemory(IMESignature, "xxxxxxxxxx", PSOBB_REGION_START, PSOBB_REGION_END);
+		if (address != 0) {
+			int FinalAddress = address + 0x56;
+
+			*(int*)FinalAddress = 0x008EC39C;
 		}
 	}
 
 	return startupInfoA(lpStartupInfo);
 }
 
+
+#ifdef _DEBUG
+auto handleFIleA = static_cast<decltype(CreateFileA)*>(CreateFileA);
+HANDLE WINAPI MyCreateFileA(
+	LPCSTR lpFileName,
+	DWORD dwDesiredAccess,
+	DWORD dwShareMode,
+	LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+	DWORD dwCreationDisposition,
+	DWORD dwFlagsAndAttributes,
+	HANDLE hTemplateFile)
+{
+	DLOG("CreateFileA: %s\n", lpFileName);
+	auto demhandle = handleFIleA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+
+	return demhandle;
+}
+#endif
+
 void PatchGameGuard(toml::table config)
 {
 	az_config = config;
+
+#ifdef _DEBUG
+	DetourAttach(&reinterpret_cast<PVOID&>(handleFIleA), MyCreateFileA);
+#endif
 
 	// Patch the GameGuard functions for unpacked versions of the client
 	ApplyGameGuardPatches(GetModuleHandle(NULL));

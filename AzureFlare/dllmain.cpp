@@ -10,8 +10,8 @@
 #include <detours/detours.h>
 #include <toml++/toml.hpp>
 
-#include "gameguard.h"
-#include "gameregion.h"
+#include "logging.h"
+#include "patches/patches.h"
 
 using namespace std::string_view_literals;
 
@@ -71,11 +71,7 @@ const char* fallbackUrl = "localhost";
 
 #pragma endregion
 
-#if _DEBUG
-#define DLOG(...) printf_s(__VA_ARGS__)
-#else
-#define DLOG(...)
-#endif
+
 
 FARPROC p[ALLFUNC_COUNT] = { 0 };
 
@@ -86,7 +82,6 @@ OriginalGetHostByName pOriginalGetHostByName = nullptr;
 
 bool loaded = FALSE;
 bool canRedirectServers = TRUE;
-bool canBypassGameGuard = false;
 toml::table config;
 
 #define AF_SERVER_REDIRECT(outBuffer, passedValue, origAddr, newAddr, comment) \
@@ -173,21 +168,14 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		freopen("CON", "w", stdout);
 #endif
 
-		// As the configuration is loaded now, we can start setting the values we need to.
+		// Set the server redirection patch status here now, the rest are handled elsewhere
 		canRedirectServers = config.at_path("patches.redirect").value_or(false);
-		canBypassGameGuard = config.at_path("patches.gameguard").value_or(false);
 
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 
-		// Bypass GameGuard if we enabled the patch
-		if (canBypassGameGuard)
-		{
-			PatchGameGuard(config);
-		}
-
-		// Set Episode 4 mode if it was set on config
-		PatchEpisode4Mode(config.at_path("patches.episode4_mode").value_or(false));
+		// Do our patches now
+		DoMemoryPatches(config);
 
 		DetourTransactionCommit();
 
@@ -201,15 +189,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		// Clean the detours we made
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
-
-		// Clean up GameGuard if we enabled the bypass
-		if (canBypassGameGuard)
-		{
-			UnpatchGameGuard();
-		}
-
-		// Remove the Episode 4 patch
-		UnpatchEpisode4Mode();
 
 		// Finalize the transaction
 		DetourTransactionCommit();

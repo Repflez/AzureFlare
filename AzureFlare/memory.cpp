@@ -8,6 +8,10 @@
 
 #include "memory.h"
 
+// TODO: Get this based on the EXE, but these correspond to JPBB 1.25.11
+#define PSOBB_CODE_REGION_START 0x401000
+#define PSOBB_CODE_REGION_END PSOBB_CODE_REGION_START + 0x638000
+
 #pragma comment(lib, "psapi.lib")
 
 void* FindPatternInModule(HMODULE hModule, BYTE* pattern, SIZE_T patternSize) {
@@ -40,7 +44,7 @@ void* FindPatternInModule(HMODULE hModule, BYTE* pattern, SIZE_T patternSize) {
 	return nullptr;
 }
 
-uintptr_t ScanProcessMemory(const uint8_t* pattern, const char* mask, uintptr_t startAddress, uintptr_t endAddress) {
+uintptr_t ScanSliceProcessMemory(const uint8_t* pattern, const char* mask, uintptr_t startAddress, uintptr_t endAddress) {
 	size_t patternSize = strlen(mask);
 
 	for (uintptr_t address = startAddress; address < endAddress; ) {
@@ -75,4 +79,10 @@ uintptr_t ScanProcessMemory(const uint8_t* pattern, const char* mask, uintptr_t 
 	}
 
 	return 0;
+}
+
+
+uintptr_t ScanProcessMemory(const uint8_t* pattern, const char* mask)
+{
+	return ScanSliceProcessMemory(pattern, mask, PSOBB_CODE_REGION_START, PSOBB_CODE_REGION_END);
 }
