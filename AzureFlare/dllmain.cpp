@@ -128,6 +128,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		const char* configFilename = "psobb.cfg";
 		char bufd[200], buf[256];
 
+#if _DEBUG
+		SetConsoleOutputCP(65001);
+		AllocConsole();
+		AttachConsole(GetCurrentProcessId());
+		freopen("CON", "w", stdout);
+#endif
+
 		// Check if the configuration exists
 		if (!std::filesystem::exists(configFilename))
 		{
@@ -160,13 +167,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		// Load the gethostbyname function separately
 		pOriginalGetHostByName = reinterpret_cast<OriginalGetHostByName>(GetProcAddress(hDLL, "gethostbyname"));
-
-#if _DEBUG
-		SetConsoleOutputCP(65001);
-		AllocConsole();
-		AttachConsole(GetCurrentProcessId());
-		freopen("CON", "w", stdout);
-#endif
 
 		// Set the server redirection patch status here now, the rest are handled elsewhere
 		canRedirectServers = config.at_path("patches.redirect").value_or(false);
