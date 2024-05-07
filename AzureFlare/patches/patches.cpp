@@ -64,6 +64,11 @@ void DoMemoryPatches(toml::table config)
 	clientLanguage = config.at_path("patches.client_language").value_or(0);
 	isEpisode4Enabled = config.at_path("patches.episode4_mode").value_or(false);
 
+	DLOG(canBypassGameGuard ? "GameGuard will be bypassed\n" : "GameGuard will not be bypassed\n");
+	DLOG(enableDirectInput ? "Direct Input will be enabled\n" : "Direct Input will not be enabled\n");
+	DLOG("Client Language set to %i\n", clientLanguage);
+	DLOG(isEpisode4Enabled ? "Episode 4 is enabled\n" : "Episode 4 is not enabled\n");
+
 	// Hook into GetStartupInfoA to allow hooking into the packed EXE's memory
 	DetourAttach(&reinterpret_cast<PVOID&>(startupInfoA), AZ_GetStartUpInfoA);
 

@@ -171,6 +171,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		// Set the server redirection patch status here now, the rest are handled elsewhere
 		canRedirectServers = config.at_path("patches.redirect").value_or(false);
 
+		DLOG(canRedirectServers ? "Server redirection will be enabled\n" : "Server redirection will not be enabled\n");
+
 		DetourTransactionBegin();
 		DetourUpdateThread(GetCurrentThread());
 
