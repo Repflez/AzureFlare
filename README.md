@@ -13,7 +13,7 @@ At the time of writing this README:
 Anything that is compatible with only Teth executables. For patches concerning them, there's [Solybum's Blue Burst Patch Project](https://github.com/Solybum/Blue-Burst-Patch-Project) (I just wanted to plug that project, it needs some recognition).
 
 ## To do
-* Tell me!
+* Make it work properly under Wine (Currently works on the unpacked EXE, not the packed one)
 
 ## Why AzureFlare?
 I looked for synonyms of Blue and Burst repectively and took 2 at random.
