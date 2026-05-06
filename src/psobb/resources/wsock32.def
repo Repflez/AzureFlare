@@ -1,0 +1,22 @@
+LIBRARY WSOCK32
+
+EXPORTS
+	__WSAFDIsSet    = ___WSAFDIsSet @151
+	closesocket     = _closesocket @3
+	connect         = _connect @4
+	gethostbyaddr   = _gethostbyaddr @51
+	gethostbyname   = _gethostbyname @52
+	getsockopt      = _getsockopt @7
+	htons           = _htons @9
+	inet_addr       = _inet_addr @10
+	recv            = _recv @16
+	recvfrom        = _recvfrom @17
+	select          = _select @18
+	send            = _send @19
+	sendto          = _sendto @20
+	setsockopt      = _setsockopt @21
+	shutdown        = _shutdown @22
+	socket          = _socket @23
+	WSACleanup      = _WSACleanup @116
+	WSAGetLastError = _WSAGetLastError @111
+	WSAStartup      = _WSAStartup @115

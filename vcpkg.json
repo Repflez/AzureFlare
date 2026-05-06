@@ -1,6 +1,0 @@
-{
-  "dependencies": [
-    "tomlplusplus",
-    "detours"
-  ]
-}
