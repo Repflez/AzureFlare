@@ -22,21 +22,21 @@ workspace "AzureFlare"
 
     buildoptions {
         "-std=c++17",
-        "-msse2",                   -- was vectorextensions "sse2"
         "-finput-charset=UTF-8",    -- was /utf-8
         "-fexec-charset=UTF-8",
-        "-march=i486",              -- XP hardware safety floor
+        "-march=i486",              -- Win98 hardware safety floor (486DX minimum)
     }
 
     links {
-        "dbghelp",
     }
 
     linkoptions {
         "-Wl,--large-address-aware",   -- /LARGEADDRESSAWARE
         "-Wa,-mbig-obj",
-        "-Wl,--major-subsystem-version,5,--minor-subsystem-version,1",
-        "-Wl,--major-os-version,5,--minor-os-version,1",
+
+        -- Target Windows 98 SE
+        "-Wl,--major-subsystem-version,4,--minor-subsystem-version,10",
+        "-Wl,--major-os-version,4,--minor-os-version,10",
 
         -- Static instructions
         "-static",
@@ -50,8 +50,8 @@ workspace "AzureFlare"
     defines {
         "NOMINMAX",
         "WIN32_LEAN_AND_MEAN",
-        "UNICODE",
-        "_UNICODE",
+        "WINVER=0x0410",         -- Windows 98
+        "_WIN32_WINNT=0x0410",   -- Windows 98
     }
 
     filter "configurations:Release"
@@ -124,7 +124,6 @@ project "polar_common"
     }
 
     links {
-        "dbghelp"
     }
     
     includedirs {

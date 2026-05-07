@@ -1,7 +1,6 @@
 #include <forward_list>
 
 #include <console.hh>
-#include <exception.hh>
 #include <format.hh>
 
 #include "wsock32.hh"
@@ -38,8 +37,6 @@ BOOL APIENTRY DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(hinstDLL);
             setlocale(LC_ALL, "");
-
-            //Utils::Exception::init("psobb");
 
 #ifdef DEBUG
 		    Utils::Console::Init();

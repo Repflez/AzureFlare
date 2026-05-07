@@ -30,12 +30,23 @@ namespace Utils
 
 	bool IO::FileExists(const std::string& path)
 	{
-		return std::filesystem::exists(path);
+		return GetFileAttributesA(path.c_str()) != INVALID_FILE_ATTRIBUTES;
 	}
 
-	void IO::CreateDirectoryPath(const std::string& path)
+	bool IO::CreateDirectoryPath(const std::string& path)
 	{
-		std::filesystem::create_directories(path);
+		char tmp[MAX_PATH];
+		strncpy(tmp, path.c_str(), MAX_PATH);
+		
+		for (char* p = tmp + 1; *p; p++) {
+			if (*p == '\\' || *p == '/') {
+				*p = '\0';
+				CreateDirectoryA(tmp, nullptr); // ignore errors, may already exist
+				*p = '\\';
+			}
+		}
+
+		return CreateDirectoryA(tmp, nullptr) || GetLastError() == ERROR_ALREADY_EXISTS;
 	}
 
 	std::string IO::ReadFile(const std::string& file)
@@ -73,17 +84,39 @@ namespace Utils
 
 	void IO::DeleteFilename(const std::string& file)
 	{
-		std::filesystem::remove(file);
+		DeleteFileA(file.c_str());
 	}
 
-	void IO::DeletePath(const std::string& path)
+	bool IO::DeletePath(const std::string& path)
 	{
-		std::filesystem::remove_all(path);
+		char pattern[MAX_PATH];
+		_snprintf(pattern, MAX_PATH, "%s\\*", path.c_str());
+
+		WIN32_FIND_DATAA fd;
+		HANDLE h = FindFirstFileA(pattern, &fd);
+		if (h != INVALID_HANDLE_VALUE) {
+			do {
+				if (strcmp(fd.cFileName, ".") == 0 || strcmp(fd.cFileName, "..") == 0)
+					continue;
+
+				char child[MAX_PATH];
+				_snprintf(child, MAX_PATH, "%s\\%s", path.c_str(), fd.cFileName);
+
+				if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+					IO::DeletePath(std::string(child));      // recurse
+				else
+					DeleteFileA(child);
+			} while (FindNextFileA(h, &fd));
+
+			FindClose(h);
+		}
+
+		return RemoveDirectoryA(path.c_str());
 	}
 
 	void IO::RenameFile(const std::string& file, const std::string& new_name)
 	{
-		std::filesystem::rename(file, new_name);
+		MoveFileA(file.c_str(), new_name.c_str());
 	}
 
 	size_t IO::GetFileSize(const std::string& file)

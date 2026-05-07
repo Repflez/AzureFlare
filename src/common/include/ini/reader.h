@@ -155,12 +155,17 @@ public:
     void SetIniPath(char* szFileName)
     {
         char buffer[MAX_PATH];
-        HMODULE hm = NULL;
-        GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&ends_with, &hm);
+
+        MEMORY_BASIC_INFORMATION mbi;
+        VirtualQuery((LPCVOID)&ends_with, &mbi, sizeof(mbi));
+        HMODULE hm = (HMODULE)mbi.AllocationBase;
+
+        //GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&ends_with, &hm);
         GetModuleFileNameA(hm, buffer, sizeof(buffer));
-        std::string modulePath = buffer;
 
 #if 0
+        std::string modulePath = buffer;
+
         if (strchr(szFileName, ':') != NULL)
         {
             m_szFileName = szFileName;
